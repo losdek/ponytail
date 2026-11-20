@@ -25,6 +25,7 @@
     "AGENTS.md",
     "hooks/",
     "skills/",
+    "!skills/*/evals/",
     ".opencode/",
     ".qoder/",
     ".qoder-plugin/",

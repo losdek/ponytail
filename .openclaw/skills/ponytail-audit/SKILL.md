@@ -51,6 +51,10 @@ tested and fixed later. This is a report the user asked for, so give it in full.
      hard to read or test. Split by job, never by line count, and never into
      helpers that exist only to make a function shorter.
 
+Rust code: also walk the review checklist in `../ponytail/references/rust.md`
+(panics on outside data, truncating `as` casts, `unsafe` without a reason,
+blocking calls and held locks in async code).
+
 ## 3. Check before you report
 
 - Every finding needs a concrete case: "this input or situation leads to this

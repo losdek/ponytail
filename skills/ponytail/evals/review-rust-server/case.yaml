@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: review-rust-server
+expected_outcome: |
+  A review report that finds the panic-on-input crash paths, the negative-length cast, the unchecked slice, and the one-implementation Store trait, without changing code.
+context:
+  scaffold_script: place-files.sh

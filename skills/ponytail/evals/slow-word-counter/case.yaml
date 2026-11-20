@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: slow-word-counter
+expected_outcome: |
+  A measured, release-mode speed-up of wc using std only: buffered/locked stdout, single HashMap lookup per word, same output as before.
+context:
+  scaffold_script: place-files.sh

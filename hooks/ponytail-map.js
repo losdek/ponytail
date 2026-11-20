@@ -16,7 +16,7 @@ const { execFileSync } = require('child_process');
 const BUDGET = Number(process.env.PONYTAIL_MAP_CHARS || 2000);
 const MAX_FILES = 4000;
 const SRC = /\.(py|js|jsx|mjs|cjs|ts|tsx|go|rs|rb|java|kt|php|swift|cs)$/;
-const SKIP_DIR = /(^|\/)(node_modules|\.git|dist|build|out|vendor|venv|\.venv|__pycache__|coverage|\.next|target|migrations|versions|fixtures|tests?|__tests__|spec)(\/|$)/;
+const SKIP_DIR = /(^|\/)(node_modules|\.git|dist|build|out|vendor|venv|\.venv|__pycache__|coverage|\.next|target|benches|migrations|versions|fixtures|tests?|__tests__|spec)(\/|$)/;
 const SKIP_FILE = /(^|\/)(test_[^/]*|[^/]*(_test|\.test|\.spec|\.gen|\.min|\.d)\.[a-z]+)$/;
 const NAME = /^(?:type\s+)?(?:[\w$]+\s+as\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?)$/;
 const SAFE_PATH = /^[\w.@+$()[\]\/-]+$/;
@@ -27,7 +27,10 @@ const PATTERNS = {
   js: [/^export\s+(?:default\s+)?(?:async\s+)?(?:function\*?|class|const|let|var|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm,
        /^export\s*\{([^}]*)\}/gm],
   go: [/^func\s+(?:\([^)]*\)\s*)?([A-Z]\w*)/gm, /^type\s+([A-Z]\w*)/gm],
-  rs: [/^pub\s+(?:async\s+)?(?:fn|struct|enum|trait|type)\s+(\w+)/gm],
+  // Rust: `pub` and `pub(crate)` items with any qualifiers (const, async, unsafe, extern "C"), plus
+  // exported macros. Indented items (impl methods, inline test modules) stay out on purpose.
+  rs: [/^pub(?:\([^)\n]*\))?\s+(?:(?:default|const|async|unsafe|extern\s+"[\w-]*")\s+)*(?:fn|struct|enum|trait|type|union)\s+(\w+)/gm,
+       /^#\[macro_export\]\s*(?:#\[[^\]\n]*\]\s*)*macro_rules!\s*(\w+)/gm],
   rb: [/^\s*(?:def|class|module)\s+([A-Za-z][\w.]*)/gm],
   jvm: [/^\s*(?:public\s+)?(?:static\s+)?(?:final\s+)?(?:class|interface|enum|record)\s+(\w+)/gm],
 };
@@ -72,8 +75,55 @@ function namesIn(file, text) {
   return names;
 }
 
+// Crates the Rust project already depends on: rung 4 of the ladder ("an installed dependency")
+// without opening Cargo.toml. Only [dependencies], [workspace.dependencies] and target-specific
+// ones; dev- and build-dependencies are not usable from the main code.
+// shortcut: line-based TOML scan, misses inline-table section names split over lines; a TOML parser
+// is the upgrade if a real Cargo.toml ever slips through.
+function cargoDeps(root, files) {
+  const deps = new Set();
+  for (const f of files.filter((f) => /(^|\/)Cargo\.toml$/.test(f) && SAFE_PATH.test(f) && !SKIP_DIR.test(f)).slice(0, 50)) {
+    let text;
+    try {
+      if (!fs.lstatSync(path.join(root, f)).isFile()) continue;
+      text = fs.readFileSync(path.join(root, f), 'utf8').slice(0, 65536);
+    } catch (e) { continue; }
+    let inDeps = false;
+    for (const line of text.split(/\r?\n/)) {
+      const sec = line.match(/^\s*\[([^\]]+)\]/);
+      if (sec) {
+        const t = sec[1].trim().match(/^(?:workspace\.|target\..+\.)?dependencies(?:\.([A-Za-z0-9_-]+))?$/);
+        inDeps = Boolean(t) && !t[1];
+        if (t && t[1]) deps.add(t[1]);
+        continue;
+      }
+      const m = inDeps && line.match(/^\s*([A-Za-z0-9_-]+)\s*=/);
+      if (m) deps.add(m[1]);
+    }
+  }
+  return [...deps];
+}
+
+const RUST_GUIDE = path.join(__dirname, '..', 'skills', 'ponytail', 'references', 'rust.md');
+
+function rustHeader(root, files) {
+  if (!files.some((f) => /(^|\/)Cargo\.toml$/.test(f))) return '';
+  const deps = cargoDeps(root, files);
+  let out = '';
+  if (fs.existsSync(RUST_GUIDE) && !/[\r\n]/.test(RUST_GUIDE)) {
+    out += `Rust project: read ${RUST_GUIDE} before writing, fixing or speeding up Rust.\n`;
+  }
+  if (deps.length) {
+    out += `Crates already in Cargo.toml (use these before adding one): ${deps.slice(0, 40).join(', ')}` +
+      `${deps.length > 40 ? ', ...' : ''}\n`;
+  }
+  return out;
+}
+
 function buildMap(root = process.cwd()) {
-  const files = listFiles(root)
+  const all = listFiles(root);
+  const rust = rustHeader(root, all);
+  const files = all
     .filter((f) => SAFE_PATH.test(f) && SRC.test(f) && !SKIP_DIR.test(f) && !SKIP_FILE.test(f))
     .slice(0, MAX_FILES)
     .sort((a, b) => (SHARED.test(b) - SHARED.test(a)) || a.localeCompare(b));
@@ -91,7 +141,7 @@ function buildMap(root = process.cwd()) {
     dirs.set(dir, [...(dirs.get(dir) || []), names]);
   }
   const lines = [];
-  let used = 0;
+  let used = rust.length;
   let skipped = 0;
   for (const [dir, perFile] of dirs) {
     // The first exports say what a file is; in a folder of many files (a UI kit) one name each.
@@ -101,8 +151,8 @@ function buildMap(root = process.cwd()) {
     lines.push(line);
     used += line.length + 1;
   }
-  if (!lines.length) return '';
-  return 'Codebase map (what already exists; reuse it, read a file only when you need its details):\n' +
+  if (!lines.length) return rust.trimEnd();
+  return rust + 'Codebase map (what already exists; reuse it, read a file only when you need its details):\n' +
     lines.join('\n') + (skipped ? `\n(${skipped} more folders not listed)` : '');
 }
 
