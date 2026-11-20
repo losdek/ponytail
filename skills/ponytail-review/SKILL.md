@@ -54,9 +54,9 @@ This is a report the user asked for, so give it in full.
      or test. Split by job, never by line count, and never into helpers that
      exist only to make a function shorter.
 
-Rust code: also walk the review checklist in `../ponytail/references/rust.md`
-(panics on outside data, truncating `as` casts, `unsafe` without a reason,
-blocking calls and held locks in async code).
+Rust code: also walk `../ponytail/references/rust-review.md` (panics on
+outside data, wrapping `as` casts, unbounded reads, `unsafe` without a reason,
+locks held across `.await`).
 
 ## 3. Check before you report
 

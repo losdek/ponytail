@@ -111,7 +111,7 @@ function rustHeader(root, files) {
   const deps = cargoDeps(root, files);
   let out = '';
   if (fs.existsSync(RUST_GUIDE) && !/[\r\n]/.test(RUST_GUIDE)) {
-    out += `Rust project: read ${RUST_GUIDE} before writing, fixing or speeding up Rust.\n`;
+    out += `Rust project: read ${RUST_GUIDE} before writing Rust (rust-speed.md and rust-review.md beside it).\n`;
   }
   if (deps.length) {
     out += `Crates already in Cargo.toml (use these before adding one): ${deps.slice(0, 40).join(', ')}` +

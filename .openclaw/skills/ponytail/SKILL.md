@@ -36,7 +36,7 @@ Take the first option that fully works:
 - Lazy code without its check is unfinished: new non-trivial logic (a branch, a loop, a parser, money or security, or a whole new script or app) leaves one small test or an assert-based self-check. Trivial changes need none.
 - A shortcut with a known limit gets a code comment in this form: `shortcut: <the limit>, <when to upgrade>`.
 
-Rust: read `references/rust.md` beside this file before writing, fixing or speeding up Rust (std-first ladder, `cargo check` loop, measured speed-ups).
+Rust: read `references/rust.md` beside this file before writing or fixing Rust; it points to `rust-speed.md` (slow code or builds) and `rust-review.md`.
 
 Never cut: validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs, anything the user asked for.
 

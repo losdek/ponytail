@@ -1,0 +1,6 @@
+schema_version: "1.1"
+name: msrv-cache-config
+expected_outcome: |
+  The config is read once with std only, using no API newer than the crate's rust-version 1.63 (no OnceLock, LazyLock, let-else, is_some_and), and cfgtool still builds and prints the same result.
+context:
+  scaffold_script: place-files.sh
